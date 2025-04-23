@@ -17,11 +17,45 @@ const ChatPanel = forwardRef(({ chatHistory, onOptionClick, toc }, ref) => {
         options: []
       };
 
+      // Find the matching items and their parent sections
+      const matchingItems = toc.filter((item) =>
+        item.title.toLowerCase().includes(value.toLowerCase())
+      );
+
+      // Create a formatted message with parent sections
+      let formattedContent = '검색 결과:';
+      const formattedResults = matchingItems.map(item => {
+        // Find parent sections
+        const parentSections = [];
+        let currentLevel = item.level;
+        let currentIndex = toc.indexOf(item);
+
+        // Walk backwards through the TOC to find parent sections
+        while (currentIndex > 0 && currentLevel > 1) {
+          currentIndex--;
+          const currentItem = toc[currentIndex];
+          if (currentItem.level < currentLevel) {
+            parentSections.unshift(currentItem);
+            currentLevel = currentItem.level;
+          }
+        }
+
+        return {
+          parents: parentSections,
+          item: item
+        };
+      });
+
       // Add search results as bot message
       const botMessage = {
         type: 'bot',
         content: '검색 결과:',
-        options: filteredKeywords
+        options: formattedResults.map(result => ({
+          text: result.item.title,
+          page: result.item.page,
+          level: result.item.level,
+          parents: result.parents
+        }))
       };
 
       // Update chat history
@@ -57,9 +91,24 @@ const ChatPanel = forwardRef(({ chatHistory, onOptionClick, toc }, ref) => {
         {message.options && message.options.length > 0 && (
           <div className="message-options">
             {message.options.map((option, optIndex) => (
-              <button key={optIndex} className="option-button" onClick={() => onOptionClick(option)}>
-                {option.text}
-              </button>
+              <div key={optIndex} className="option-container">
+                <button className="option-button" onClick={() => onOptionClick(option)}>
+                  {option.text}
+                </button>
+                {option.parents && option.parents.length > 0 && (
+                  <div className="option-path-tooltip">
+                    {option.parents.map((parent, parentIdx) => (
+                      <div
+                        key={parentIdx}
+                        className="option-path-item"
+                        style={{ '--depth': parentIdx }}
+                      >
+                        {parent.title}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
